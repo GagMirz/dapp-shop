@@ -9,7 +9,8 @@ import { contracts } from '../../contract';
 import Loader from '../../loading';
 import { changeChainId } from '../../changeChain';
 import { Notification, MessageType } from '../../utils/notification';
-import { Fruit, AllData, ShopItem, Data } from '../../types';
+import { abbreAddress } from '../../utils/utils';
+import { Fruit, AllData, ShopItem } from '../../types';
 
 import 'react-notifications/lib/notifications.css';
 import './Home.css';
@@ -93,16 +94,6 @@ export default function Home() {
             setTotalPrice(total);
         }
     }, [fruits, allData])
-
-
-    const abbreAddress = (d: string) => {
-        if (d?.length > 0) {
-            let first = d.slice(0, 4);
-            let last = d.slice(d.length - 4, d.length);
-            return `${first}...${last}`;
-        }
-        return '';
-    }
 
     const connectWallet = () => {
         activate(injected, (err) => {
