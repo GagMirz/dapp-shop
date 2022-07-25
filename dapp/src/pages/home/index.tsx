@@ -9,22 +9,26 @@ import { contracts } from '../../contract';
 import Loader from '../../loading';
 import { changeChainId } from '../../changeChain';
 import { Notification, MessageType } from '../../utils/notification';
+import { Fruit, AllData, ShopItem, Data } from '../../types';
 
 import 'react-notifications/lib/notifications.css';
 import './Home.css';
+import { Row } from '../../components/row';
 
 const { NotificationContainer } = require('react-notifications');
 const injected = new InjectedConnector({
     supportedChainIds: [1, 3, 4, 5, 42],
 });
 
+
+
 export default function Home() {
     const { activate, active, account, deactivate, library, chainId } = useWeb3React();
     const [balance, setBalance] = useState<number>(0);
     const [usdBalance, setUsdBalance] = useState<number>(0);
     const [usdPrice, setUsdPrice] = useState<number>(0);
-    const [allData, setallData] = useState<any>({});
-    const [fruits, setFruits] = useState<any>();
+    const [allData, setallData] = useState<AllData>({});
+    const [fruits, setFruits] = useState<Fruit[]>();
     const [totalPrice, setTotalPrice] = useState<number>(0);
     const provider = useMemo(() => new ethers.providers.JsonRpcProvider('https://rinkeby.infura.io/v3/f93e1c2c1b904979b8606e3703f1db9c'), []);
 
@@ -45,8 +49,8 @@ export default function Home() {
         (async () => {
             try {
                 const shopItems = await contract.getShopItems();
-                const Arr: any = []
-                shopItems.map((e: any) => {
+                const Arr: Fruit[] = []
+                shopItems.map((e: ShopItem) => {
                     return (
                         Arr.push({
                             fruit: e.fruitType,
@@ -57,7 +61,7 @@ export default function Home() {
                         })
                     )
                 })
-                setallData(Object.assign({}, ...Arr.map((x: any) => ({
+                setallData(Object.assign({}, ...Arr.map((x) => ({
                     [x.fruit]: {
                         amount: 0,
                         id: '0x0'
@@ -74,7 +78,7 @@ export default function Home() {
         [])
 
     useEffect(() => {
-        library?.eth.getBalance(account).then((result: any) => {
+        library?.eth.getBalance(account).then((result: number) => {
             setBalance(result / 1e18)
         })
         setUsdBalance(Number((balance * usdPrice).toFixed(2)));
@@ -83,7 +87,7 @@ export default function Home() {
     useEffect(() => {
         let total = 0;
         if (fruits) {
-            fruits.forEach((value: any) => {
+            fruits.forEach((value: Fruit) => {
                 total += parseFloat(allData[value.fruit].amount) * parseFloat(value.price)
             })
             setTotalPrice(total);
@@ -91,7 +95,7 @@ export default function Home() {
     }, [fruits, allData])
 
 
-    const abbreAddress = (d: any) => {
+    const abbreAddress = (d: string) => {
         if (d?.length > 0) {
             let first = d.slice(0, 4);
             let last = d.slice(d.length - 4, d.length);
@@ -106,7 +110,7 @@ export default function Home() {
         })
     }
 
-    const handleChange = async (fruit: any, e: any) => {
+    const handleChange = async (fruit: Fruit, e: any) => {
         let value = parseFloat(e.target.value);
         if (value > fruit.qty) { value = fruit.qty; }
         else if (isNaN(value)) {
@@ -129,7 +133,7 @@ export default function Home() {
             const FruitsAmounts = [];
 
             for (let i in allData) {
-                if (allData[i].amount !== 0) {
+                if (parseFloat(allData[i].amount) !== 0) {
                     FruitIds.push(allData[i].id)
                     FruitsAmounts.push(allData[i].amount)
                 }
@@ -155,11 +159,11 @@ export default function Home() {
                         from: account,
                         value: Web3.utils.toWei(`${totalPrice}`)
                     }).then(() => {
-                        Notification(MessageType.ERROR, 'You bought FRUIT!!!')
+                        Notification(MessageType.SUCCESS, 'You bought FRUIT!!!')
                     })
                 }
                 catch (err) {
-                    Notification(MessageType.SUCCESS, err)
+                    Notification(MessageType.ERROR, err)
                     console.log(err);
                 }
             }
@@ -184,19 +188,8 @@ export default function Home() {
                             </tr>
                             <tbody>
                                 {(fruits && fruits.length > 0) ?
-                                    (fruits.map((value: any) => (
-                                        <tr key={value.fruit}>
-                                            <td><img className='NFT-image' src={value.imagUrl} alt={value.fruit} /></td>
-                                            <td>{value.fruit}</td>
-                                            <td>{value.price}</td>
-                                            <td>{value.qty}</td>
-                                            <td>
-                                                <span className='input'>
-                                                    <input className="input-number" type="number" min={0} max={value.qty} value={allData[value.fruit].amount} onChange={e => handleChange(value, e)} />
-                                                </span>
-                                            </td>
-                                            <td>{parseFloat(allData[value.fruit].amount) * value.price} ETH</td>
-                                        </tr>
+                                    (fruits.map((value: Fruit) => (
+                                        <Row item={value} allData={allData} handleChange={handleChange}/>
                                     )
                                     ))
                                     : (
@@ -222,7 +215,7 @@ export default function Home() {
                                         :
                                         <>
                                             <button className='walletConnect' onClick={deactivate} title='disconnect'>
-                                                {abbreAddress(account)}
+                                                {abbreAddress(account || "")}
                                             </button>
                                             <button className={`walletConnect ${(balance === 0 || balance < totalPrice || totalPrice === 0) ? 'disabled' : ""}`} onClick={buyFruit} title='disconnect' >
                                                 Buy fruit
