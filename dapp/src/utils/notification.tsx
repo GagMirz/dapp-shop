@@ -1,5 +1,4 @@
- //@ts-ignore
-import { NotificationManager } from 'react-notifications';
+const { NotificationManager } = require('react-notifications');
 
 export default function Notification (type: string, massage:any) {
     let not;

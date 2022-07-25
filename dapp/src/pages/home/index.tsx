@@ -9,12 +9,11 @@ import { contracts } from '../../contract';
 import Loader from '../../loading';
 import { changeChainId } from '../../changeChain';
 import Notification from '../../utils/notification';
-//@ts-ignore
-import { NotificationContainer } from 'react-notifications';
 
 import 'react-notifications/lib/notifications.css';
 import './Home.css';
 
+const { NotificationContainer } = require('react-notifications');
 const injected = new InjectedConnector({
     supportedChainIds: [1, 3, 4, 5, 42],
 });
@@ -28,10 +27,9 @@ export default function Home() {
     const [fruits, setFruits] = useState<any>();
     const [totalPrice, setTotalPrice] = useState<number>(0);
     const provider = useMemo(() => new ethers.providers.JsonRpcProvider('https://rinkeby.infura.io/v3/f93e1c2c1b904979b8606e3703f1db9c'), []);
-    //@ts-ignore
-    const priceFeed = new ethers.Contract(process.env.REACT_APP_PROVIDE_ADDRESS, ABI, provider);
-    //@ts-ignore
-    const contract = new ethers.Contract(process.env.REACT_APP_SHOP_ADDRESS, SHOP_ABI, provider);
+    
+    const priceFeed = new ethers.Contract(process.env.REACT_APP_PROVIDE_ADDRESS || "", ABI, provider);
+    const contract = new ethers.Contract(process.env.REACT_APP_SHOP_ADDRESS  || "", SHOP_ABI, provider);
     const newProvider = window?.ethereum || (window?.web3 && window.web3.currentProvider);
 
     useEffect(() => {

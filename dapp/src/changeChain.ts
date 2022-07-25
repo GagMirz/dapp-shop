@@ -7,8 +7,7 @@ export const changeChainId = async (provider: any, chainId: string) => {
       return true;
     } catch (err) {
       console.log(err);
-      // @ts-ignore
-      if (err.message.includes("Unrecognized chain ID")) {
+      if (err instanceof Error && err.message.includes("Unrecognized chain ID")) {
         const networkMap = {
           POLYGON_MAINNET: {
             chainId: '0x4',
