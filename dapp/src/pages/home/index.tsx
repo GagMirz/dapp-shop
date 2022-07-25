@@ -4,17 +4,18 @@ import Web3 from 'web3';
 import { useWeb3React } from '@web3-react/core';
 import { ethers } from 'ethers';
 import ABI from "../../abi/interfaseABI.json";
-import SHOP_ABI from "../../abi/Shop.json";
-import { contracts } from '../../contract';
+import { contracts } from '../../blockchain/contract';
 import Loader from '../../loading';
 import { changeChainId } from '../../changeChain';
 import { Notification, MessageType } from '../../utils/notification';
-import { abbreAddress } from '../../utils/utils';
+import { abbreAddress, calculateTotalPrice, shopItemsToFruits } from '../../utils/utils';
 import { Fruit, AllData, ShopItem } from '../../types';
-
+import { buyItem, getShopItems } from '../../blockchain/shop';
+import { getUsfPriceForEth } from '../../blockchain/chainList';
 import 'react-notifications/lib/notifications.css';
 import './Home.css';
 import { Row } from '../../components/row';
+import { HeaderRow } from '../../components/headerRow';
 
 const { NotificationContainer } = require('react-notifications');
 const injected = new InjectedConnector({
@@ -31,37 +32,24 @@ export default function Home() {
     const [allData, setallData] = useState<AllData>({});
     const [fruits, setFruits] = useState<Fruit[]>();
     const [totalPrice, setTotalPrice] = useState<number>(0);
-    const provider = useMemo(() => new ethers.providers.JsonRpcProvider('https://rinkeby.infura.io/v3/f93e1c2c1b904979b8606e3703f1db9c'), []);
 
-    const priceFeed = new ethers.Contract(process.env.REACT_APP_PROVIDE_ADDRESS || "", ABI, provider);
-    const contract = new ethers.Contract(process.env.REACT_APP_SHOP_ADDRESS || "", SHOP_ABI, provider);
-    const newProvider = window?.ethereum || (window?.web3 && window.web3.currentProvider);
+    const provider = window?.ethereum || (window?.web3 && window.web3.currentProvider);
+
+    const web3 = new Web3(provider)
+    contracts.setContract(web3);
 
     useEffect(() => {
         (async () => {
-            let roundData = await priceFeed.latestRoundData();
-            let decimals = await priceFeed.decimals();
-            setUsdPrice(Number((roundData.answer.toString() / Math.pow(10, decimals)).toFixed(2)));
+            const price = await getUsfPriceForEth();
+            setUsdPrice(price);
         })();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [provider, balance])
+    }, [balance])
 
     useEffect(() => {
         (async () => {
             try {
-                const shopItems = await contract.getShopItems();
-                const Arr: Fruit[] = []
-                shopItems.map((e: ShopItem) => {
-                    return (
-                        Arr.push({
-                            fruit: e.fruitType,
-                            price: Web3.utils.fromWei(`${Number(e.price._hex)}`, 'ether'),
-                            qty: Number(e.amount._hex),
-                            imagUrl: e.uri,
-                            id: e.id._hex
-                        })
-                    )
-                })
+                const shopItems: ShopItem[] = await getShopItems();
+                const Arr: Fruit[] = shopItemsToFruits(shopItems);
                 setallData(Object.assign({}, ...Arr.map((x) => ({
                     [x.fruit]: {
                         amount: 0,
@@ -86,13 +74,7 @@ export default function Home() {
     }, [active, account, library, usdPrice, balance])
 
     useEffect(() => {
-        let total = 0;
-        if (fruits) {
-            fruits.forEach((value: Fruit) => {
-                total += parseFloat(allData[value.fruit].amount) * parseFloat(value.price)
-            })
-            setTotalPrice(total);
-        }
+            setTotalPrice(calculateTotalPrice(fruits, allData));
     }, [fruits, allData])
 
     const connectWallet = () => {
@@ -123,41 +105,13 @@ export default function Home() {
             const FruitIds = [];
             const FruitsAmounts = [];
 
-            for (let i in allData) {
+            for (const i in allData) {
                 if (parseFloat(allData[i].amount) !== 0) {
                     FruitIds.push(allData[i].id)
                     FruitsAmounts.push(allData[i].amount)
                 }
             }
-            const web3 = new Web3(newProvider)
-            if (FruitIds.length > 1) {
-                try {
-                    contracts.getContract(web3).methods.buyFruitBunch(FruitIds, FruitsAmounts).send({
-                        from: account,
-                        value: Web3.utils.toWei(`${totalPrice}`)
-                    }).then(() => {
-                        Notification(MessageType.SUCCESS, 'You bought FRUIT!!!')
-                    })
-                }
-                catch (err) {
-                    Notification(MessageType.ERROR, err)
-                    console.log(err);
-                }
-            }
-            else if (FruitIds.length === 1) {
-                try {
-                    contracts.getContract(web3).methods.buyFruit(FruitIds[0], FruitsAmounts[0]).send({
-                        from: account,
-                        value: Web3.utils.toWei(`${totalPrice}`)
-                    }).then(() => {
-                        Notification(MessageType.SUCCESS, 'You bought FRUIT!!!')
-                    })
-                }
-                catch (err) {
-                    Notification(MessageType.ERROR, err)
-                    console.log(err);
-                }
-            }
+            buyItem({FruitIds, FruitsAmounts, totalPrice, account});
         }
     }
 
@@ -169,14 +123,7 @@ export default function Home() {
                 <div className='cart'>
                     <div className='items'>
                         <table className='table'>
-                            <tr>
-                                <th>NFT</th>
-                                <th>Fruit</th>
-                                <th>PRICE</th>
-                                <th>Amount</th>
-                                <th>QTY</th>
-                                <th>Total</th>
-                            </tr>
+                            <HeaderRow/>
                             <tbody>
                                 {(fruits && fruits.length > 0) ?
                                     (fruits.map((value: Fruit) => (
@@ -200,7 +147,7 @@ export default function Home() {
                             <div className='button-container'>
                                 {active ?
                                     (chainId !== 4 ?
-                                        <button className='walletConnect' onClick={() => changeChainId(newProvider, '0x4')}>
+                                        <button className='walletConnect' onClick={() => changeChainId(provider, '0x4')}>
                                             Switch to Rinkeby
                                         </button>
                                         :
